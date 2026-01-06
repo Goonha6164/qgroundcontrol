@@ -12,6 +12,40 @@
 
 #include <QtMath>
 
+////////////////////////////////////////////////////////////add
+// #include <arpa/inet.h>
+// #include <sys/socket.h>
+// #include <netinet/in.h>
+
+// int sock;
+// struct sockaddr_in server_address;
+// socklen_t server_sz;
+// float lpos[4];
+
+// void set_udp(const char* ip, int port)
+// {
+//     sock = socket(PF_INET, SOCK_DGRAM,0);
+//     if (sock == -1)
+//     {
+//         perror("Cannot create socket.");
+//         exit(EXIT_FAILURE);
+//     }
+//     else
+//         printf("socket open\n");
+
+//     memset(&server_address, 0, sizeof(server_address));
+//     server_address.sin_family = AF_INET;
+//     server_address.sin_addr.s_addr = inet_addr(ip);
+//     server_address.sin_port = htons(port);
+//     server_sz = sizeof(server_address);
+// }
+#include "UdpSender.h"
+#include "UdpProto.h"
+
+
+////////////////////////////////////////////////////////////
+
+
 const char* VehicleLocalPositionFactGroup::_xFactName =     "x";
 const char* VehicleLocalPositionFactGroup::_yFactName =     "y";
 const char* VehicleLocalPositionFactGroup::_zFactName =     "z";
@@ -42,6 +76,10 @@ VehicleLocalPositionFactGroup::VehicleLocalPositionFactGroup(QObject* parent)
     _vxFact.setRawValue(qQNaN());
     _vyFact.setRawValue(qQNaN());
     _vzFact.setRawValue(qQNaN());
+    
+    /////////////////////////////////////////// add
+    // set_udp("127.0.0.1", 9190);
+    
 }
 
 void VehicleLocalPositionFactGroup::handleMessage(Vehicle* /* vehicle */, mavlink_message_t& message)
@@ -62,4 +100,24 @@ void VehicleLocalPositionFactGroup::handleMessage(Vehicle* /* vehicle */, mavlin
     vz()->setRawValue(localPosition.vz);
 
     _setTelemetryAvailable(true);
+
+    /////////////////////////////////////////////////////
+    localpos p;
+    //p.time = (uint64_t)localPosition.time_boot_ms;
+    p.x = (float)localPosition.x;
+    p.y = (float)localPosition.y;
+    p.z = (float)localPosition.z;
+    p.vx = (float)localPosition.vx;
+    p.vy = (float)localPosition.vy;
+    p.vz = (float)localPosition.vz;
+
+    UdpSender::instance().sendtype(LOCAL_POS, &p, sizeof(p));
+    
+    // lpos[0] = 0;
+    // lpos[1] = (float)localPosition.x;
+    // lpos[2] = (float)localPosition.y;
+    // lpos[3] = (float)localPosition.z;
+    /////////////////////////////////////// add
+    // sendto(sock, lpos, sizeof(lpos), 0, (const struct sockaddr *)&server_address, server_sz);    
 }
+

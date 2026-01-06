@@ -106,6 +106,11 @@ add_library(Vehicle
 	VehicleHygrometerFactGroup.h
 	RemoteIDManager.h
 	RemoteIDManager.cc
+	
+	UdpProto.h
+	UdpSender.h
+	UdpSender.cc
+	
 
 	${EXTRA_SRC}
 )

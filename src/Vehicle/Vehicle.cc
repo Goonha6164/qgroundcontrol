@@ -58,6 +58,11 @@
 #include "Autotune.h"
 #include "RemoteIDManager.h"
 
+
+#include "UdpSender.h"
+#include "UdpProto.h"
+
+
 QGC_LOGGING_CATEGORY(VehicleLog, "VehicleLog")
 
 #define UPDATE_TIMER 50
@@ -1154,11 +1159,41 @@ void Vehicle::_handleAttitudeQuaternion(mavlink_message_t& message)
     float q[] = { quat.w(), quat.x(), quat.y(), quat.z() };
     mavlink_quaternion_to_euler(q, &roll, &pitch, &yaw);
 
-    _handleAttitudeWorker(roll, pitch, yaw);
+    //_handleAttitudeWorker(roll, pitch, yaw);
+
+    roll = QGC::limitAngleToPMPIf(roll);
+    pitch = QGC::limitAngleToPMPIf(pitch);
+    yaw = QGC::limitAngleToPMPIf(yaw);
+
+    roll = qRadiansToDegrees(roll);
+    pitch = qRadiansToDegrees(pitch);
+    yaw = qRadiansToDegrees(yaw);
+
+    if (yaw < 0.0) {
+        yaw += 360.0;
+    }
+    // truncate to integer so widget never displays 360
+    yaw = trunc(yaw);
+
+    _rollFact.setRawValue(roll);
+    _pitchFact.setRawValue(pitch);
+    _headingFact.setRawValue(yaw);
 
     rollRate()->setRawValue(qRadiansToDegrees(rates[0]));
     pitchRate()->setRawValue(qRadiansToDegrees(rates[1]));
     yawRate()->setRawValue(qRadiansToDegrees(rates[2]));
+
+    att p;
+    //p.time = (uint64_t)localPosition.time_boot_ms;
+    p.roll = (float)roll;
+    p.pitch = (float)pitch;
+    p.yaw = (float)yaw;
+    p.rollrate = (float)qRadiansToDegrees(rates[0]);
+    p.pitchrate = (float)qRadiansToDegrees(rates[1]);
+    p.yawrate = (float)qRadiansToDegrees(rates[2]);
+    
+
+    UdpSender::instance().sendtype(ATTITUDE, &p, sizeof(p));
 }
 
 void Vehicle::_handleGpsRawInt(mavlink_message_t& message)
@@ -1197,6 +1232,18 @@ void Vehicle::_handleGlobalPositionInt(mavlink_message_t& message)
     if (globalPositionInt.lat == 0 && globalPositionInt.lon == 0) {
         return;
     }
+
+    globalpos p;
+    //p.time = (uint64_t)localPosition.time_boot_ms;
+    p.lat = globalPositionInt.lat / (double)1E7;
+    p.lon = globalPositionInt.lon / (double)1E7;
+    p.alt = globalPositionInt.alt / 1000.0;
+    p.rel_alt = globalPositionInt.relative_alt / 1000.0;
+    p.vx = (float)globalPositionInt.vx;
+    p.vy = (float)globalPositionInt.vy;
+    p.vz = (float)globalPositionInt.vz;
+
+    UdpSender::instance().sendtype(GLOBAL_POS, &p, sizeof(p));
 
     _globalPositionIntMessageAvailable = true;
     QGeoCoordinate newPosition(globalPositionInt.lat  / (double)1E7, globalPositionInt.lon / (double)1E7, globalPositionInt.alt  / 1000.0);
@@ -2499,6 +2546,7 @@ void Vehicle::_sendQGCTimeToVehicle()
 
     // Timestamp of the master clock in microseconds since UNIX epoch.
     cmd.time_unix_usec = QDateTime::currentDateTime().currentMSecsSinceEpoch()*1000;
+    printf("%ld\n",cmd.time_unix_usec );
     // Timestamp of the component clock since boot time in milliseconds (Not necessary).
     cmd.time_boot_ms = 0;
     mavlink_msg_system_time_encode_chan(_mavlink->getSystemId(),

@@ -7,6 +7,8 @@
 #include "ParameterManager.h"
 
 #include <Eigen/Eigen>
+#include "Vehicle/UdpProto.h"
+#include "Vehicle/UdpSender.h"
 
 QGC_LOGGING_CATEGORY(GimbalLog, "GimbalLog")
 
@@ -285,11 +287,19 @@ GimbalController::_handleGimbalDeviceAttitudeStatus(const mavlink_message_t& mes
     gimbal.setYawLock((attitude_status.flags & GIMBAL_DEVICE_FLAGS_YAW_LOCK) > 0);
     gimbal._neutral = (attitude_status.flags & GIMBAL_DEVICE_FLAGS_NEUTRAL) > 0;
 
+    gimbalinfo p;
+
     float roll, pitch, yaw;
     mavlink_quaternion_to_euler(attitude_status.q, &roll, &pitch, &yaw);
 
-    gimbal.setAbsoluteRoll(qRadiansToDegrees(roll));
-    gimbal.setAbsolutePitch(qRadiansToDegrees(pitch));
+    roll = qRadiansToDegrees(roll);
+    pitch = qRadiansToDegrees(pitch);
+
+    gimbal.setAbsoluteRoll(roll);
+    gimbal.setAbsolutePitch(pitch);
+
+    // gimbal.setAbsoluteRoll(qRadiansToDegrees(roll));
+    // gimbal.setAbsolutePitch(qRadiansToDegrees(pitch));
 
     if (yaw_in_vehicle_frame) {
         float bodyYaw = qRadiansToDegrees(yaw);
@@ -299,7 +309,9 @@ GimbalController::_handleGimbalDeviceAttitudeStatus(const mavlink_message_t& mes
         }
 
         gimbal.setBodyYaw(bodyYaw);
+        p.yaw = bodyYaw;
         gimbal.setAbsoluteYaw(absoluteYaw);
+        p.abyaw = absoluteYaw;
 
     } else {
         float absoluteYaw = qRadiansToDegrees(yaw);
@@ -309,12 +321,21 @@ GimbalController::_handleGimbalDeviceAttitudeStatus(const mavlink_message_t& mes
         }
 
         gimbal.setBodyYaw(bodyYaw);
+        p.yaw = bodyYaw;
         gimbal.setAbsoluteYaw(absoluteYaw);
+        p.abyaw = absoluteYaw;
     }
 
     gimbal._receivedAttitude = true;
 
     _checkComplete(gimbal, pairId);
+
+    
+    //p.time = (uint64_t)localPosition.time_boot_ms;
+    p.roll = roll;
+    p.pitch = pitch;
+
+    UdpSender::instance().sendtype(GIMBAL_INFO, &p, sizeof(p));
 }
 
 void

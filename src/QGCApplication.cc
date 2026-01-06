@@ -16,6 +16,9 @@
  *
  */
 
+ extern "C" bool relay_start();
+ extern "C" void relay_stop();
+
 #include <QFile>
 #include <QRegularExpression>
 #include <QFontDatabase>
@@ -369,6 +372,8 @@ QGCApplication::QGCApplication(int &argc, char* argv[], bool unitTesting)
 #endif /* __mobile__ */
 
     _checkForNewVersion();
+
+    relay_start();
 }
 
 void QGCApplication::_exitWithError(QString errorMessage)
@@ -1024,10 +1029,12 @@ bool QGCApplication::event(QEvent *e)
         // signal is sent and the normal shutdown sequence runs.
         bool forceClose = _mainRootWindow->property("_forceClose").toBool();
         qDebug() << "Quit event" << forceClose;
+        if (forceClose) relay_stop();
         // forceClose
         //  true:   Standard QGC shutdown sequence is complete. Let the app quit normally by falling through to the base class processing.
         //  false:  QGC shutdown sequence has not been run yet. Don't let this event close the app yet. Close the main window to kick off the normal shutdown.
         if (!forceClose) {
+            relay_stop();
             //
             _mainRootWindow->close();
             e->ignore();

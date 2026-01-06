@@ -4,6 +4,8 @@ add_library(Gimbal
 )
 
 target_link_libraries(Gimbal
+	PRIVATE
+		Vehicle
 	PUBLIC
 		qgc
 )

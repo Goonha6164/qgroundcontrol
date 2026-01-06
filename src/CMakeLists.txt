@@ -113,6 +113,16 @@ add_library(qgc
 	stable_headers.h
 	TerrainTile.cc
 	TerrainTile.h
+	
+	MAVlinkRelay.cc
+	UdpProto.h
+)
+
+find_package(Threads REQUIRED)
+
+target_link_libraries(qgc
+    PRIVATE
+        Threads::Threads
 )
 
 set_source_files_properties(QGCApplication.cc PROPERTIES COMPILE_DEFINITIONS APP_VERSION_STR="${APP_VERSION_STR}")
