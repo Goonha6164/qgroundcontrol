@@ -26,6 +26,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Update submodules
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+
       - name: Get all tags for correct version determination
         run: git fetch --all --tags -f --depth 1
 
@@ -75,11 +80,33 @@ jobs:
         with:
           arch: x64
 
-      - name: Build
+      - name: Build (show why obj missing)
         working-directory: ${{ runner.temp }}\shadow_build_dir
         run: |
-          qmake -r ${{ env.SOURCE_DIR }}\qgroundcontrol.pro CONFIG+=installer CONFIG+=${{ env.BUILD_TYPE }}
+          @echo on
+          echo TEMP=%TEMP%
+
+          qmake -r ${{ env.SOURCE_DIR }}\qgroundcontrol.pro CONFIG+=installer CONFIG+=${{ env.BUILD_TYPE }} || exit /b 1
+
+          rem ---- build ----
           ${{ runner.temp }}\jom\jom -j1
+          if errorlevel 1 (
+            echo ===== jom failed (compile errors above) =====
+            exit /b 1
+          )
+
+          rem ---- if link fails later, dump obj + response file ----
+          echo ===== check obj exists =====
+          dir /b QGCMapEngine.obj
+          echo ===== find any QGCMap*.obj =====
+          dir /b QGCMap*.obj
+
+          echo ===== dump link response files =====
+          dir /b /s "%TEMP%\QGroundControl.exe.*.jom"
+          for /f "delims=" %%F in ('dir /b /s "%TEMP%\QGroundControl.exe.*.jom" 2^>nul') do (
+            echo ====== %%F ======
+            type "%%F"
+          )
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
