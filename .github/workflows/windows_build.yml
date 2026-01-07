@@ -1,73 +1,81 @@
-name: Windows (Qt5 + CMake)
+name: Windows (Qt5.15.2 + MSVC2019 + CMake)
 
 on:
   push:
-    branches: "qgc_v1"
+    branches: [ master ]
   pull_request:
+    branches: [ master ]
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: "Build type"
-        required: false
-        default: "Release"
-        type: choice
-        options: [ "Release", "Debug" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: windows-2022
+    name: Build AMD64 (Qt 5.15.2 / MSVC2019)
+    runs-on: windows-2019
+
     defaults:
       run:
-        shell: pwsh
+        shell: cmd
 
     env:
-      BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
+      QT_VERSION: "5.15.2"
+      QT_ARCH: "win64_msvc2019_64"
+      BUILD_TYPE: "Release"
 
     steps:
-      - name: Checkout (submodules)
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
 
+      # Ninja는 있는 경우도 많지만, 확실히 깔아두면 덜 빡침
       - name: Install Ninja
-        run: |
-          choco install ninja -y
-          ninja --version
+        run: choco install ninja -y
 
-      # Qt5.15.2는 보통 MSVC2019(v142)랑 궁합이 제일 좋음
-      - name: Setup MSVC 2019 (v142)
+      - name: Install Qt ${{ env.QT_VERSION }} (${{ env.QT_ARCH }})
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: ${{ env.QT_ARCH }}
+          modules: qtlocation qtpositioning
+          cache: true
+
+      # VS2019 + v142(14.29) 강제 고정
+      - name: Set up MSVC devcmd (v142)
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          toolset: 14.2
-
-      - name: Install Qt 5.15.2 (MSVC 2019)
-        uses: jurplel/install-qt-action@v4
-        id: qt
-        with:
-          version: "5.15.2"
-          arch: "win64_msvc2019_64"
-          cache: true
-          # 레포 CMake가 요구하는 모듈에 맞춰 조절
-          modules: "qtlocation qtpositioning"
+          toolset: 14.29
 
       - name: Configure (CMake)
         run: |
-          cmake -S . -B build -G Ninja `
-            -DCMAKE_BUILD_TYPE=${env:BUILD_TYPE} `
-            -DCMAKE_PREFIX_PATH="${{ steps.qt.outputs.qt_dir }}"
+          echo Qt5_Dir=%Qt5_Dir%
+          if "%Qt5_Dir%"=="" ( echo ERROR: Qt5_Dir not set & exit /b 1 )
+
+          rem --- out-of-source build ---
+          rmdir /s /q build 2>nul
+          mkdir build
+
+          cmake -S . -B build -G Ninja ^
+            -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
+            -DCMAKE_PREFIX_PATH="%Qt5_Dir%" ^
+            -DQGC_ENABLE_GST_VIDEOSTREAMING=ON
 
       - name: Build
         run: |
-          cmake --build build --config ${env:BUILD_TYPE} --parallel
+          cmake --build build --config %BUILD_TYPE% --parallel 2
 
-      - name: Install (staging)
+      # (선택) 빌드 산출물 확인용: exe가 어디 생기는지 찍어보기
+      - name: Locate QGroundControl.exe
         run: |
-          cmake --install build --config ${env:BUILD_TYPE} --prefix "$pwd\staging"
+          dir /s /b build\QGroundControl.exe || (echo "QGroundControl.exe not found under build\" & exit /b 1)
 
-      - name: Upload artifact
+      - name: Upload build folder
         uses: actions/upload-artifact@v4
         with:
-          name: QGC-Qt5-CMake-${{ env.BUILD_TYPE }}
-          path: staging
+          name: QGC-win64-build
+          path: build
