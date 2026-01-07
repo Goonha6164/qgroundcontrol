@@ -36,13 +36,23 @@ jobs:
       - name: Install Ninja
         run: choco install ninja -y
 
-      - name: Install Qt ${{ env.QT_VERSION }} (${{ env.QT_ARCH }})
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          arch: ${{ env.QT_ARCH }}
-          modules: qtlocation qtpositioning
-          cache: true
+      #- name: Install Qt ${{ env.QT_VERSION }} (${{ env.QT_ARCH }})
+      #  uses: jurplel/install-qt-action@v4
+      #  with:
+      #    version: ${{ env.QT_VERSION }}
+      #    arch: ${{ env.QT_ARCH }}
+      #    modules: qtlocation qtpositioning
+      #   cache: true
+      
+      - name: Install Qt 5.15.2 (with modules)
+        run: |
+    	  python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 ^
+          --outputdir "%GITHUB_WORKSPACE%\Qt" ^
+          --modules qtlocation qtpositioning ^
+          --autodesktop
+
+
+
 
       # VS2019 + v142(14.29) 강제 고정
       - name: Set up MSVC devcmd (v142)
