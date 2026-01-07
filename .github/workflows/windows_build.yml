@@ -1,106 +1,73 @@
-name: Windows Build - Custom Version Release
+name: Windows (Qt5 + CMake)
 
 on:
   push:
-    branches: ["**"]
+    branches: [ "master", "main" ]
   pull_request:
-    branches: ["**"]
-
-defaults:
-  run:
-    shell: cmd
-
-env:
-  SOURCE_DIR:   ${{ github.workspace }}
-  QT_VERSION:   5.15.2
-  ARTIFACT:     QGroundControl-installer.exe
-  BUILD_TYPE:   ${{ fromJSON('["DailyBuild", "StableBuild"]')[ github.ref_type == 'tag' || contains(github.ref, 'Stable_' ) ] }}
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: "Build type"
+        required: false
+        default: "Release"
+        type: choice
+        options: [ "Release", "Debug" ]
 
 jobs:
   build:
-    runs-on: windows-2019
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: pwsh
+
+    env:
+      BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout (submodules)
+        uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
-      - name: Update submodules
+      - name: Install Ninja
         run: |
-          git submodule sync --recursive
-          git submodule update --init --recursive
+          choco install ninja -y
+          ninja --version
 
-      - name: Get all tags for correct version determination
-        run: git fetch --all --tags -f --depth 1
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v3
-        with:
-          version:      ${{ env.QT_VERSION }}
-          host:         windows
-          target:       desktop
-          arch:         win64_msvc2019_64
-          dir:          ${{ runner.temp }}
-          modules:      qtcharts
-          setup-python: false
-
-      - name: Download JOM
-        uses: suisei-cn/actions-download-file@v1.3.0
-        with:
-          url:    http://download.qt.io/official_releases/jom/jom.zip
-          target: ${{ runner.temp }}\
-
-      - name: Unzip JOM
-        working-directory: ${{ runner.temp }}
-        run: 7z x jom.zip -ojom
-
-      - name: Download GStreamer
-        uses: suisei-cn/actions-download-file@v1.3.0
-        with:
-          url:    https://s3-us-west-2.amazonaws.com/qgroundcontrol/dependencies/gstreamer-1.0-msvc-x86_64-1.18.1.msi
-          target: ${{ runner.temp }}\
-
-      - name: Download GStreamer dev
-        uses: suisei-cn/actions-download-file@v1.3.0
-        with:
-          url:    https://s3-us-west-2.amazonaws.com/qgroundcontrol/dependencies/gstreamer-1.0-devel-msvc-x86_64-1.18.1.msi
-          target: ${{ runner.temp }}\
-
-      - name: Install GStreamer
-        run: |
-          cmd /c start /wait msiexec /package ${{ runner.temp }}\gstreamer-1.0-msvc-x86_64-1.18.1.msi /passive ADDLOCAL=ALL
-          cmd /c start /wait msiexec /package ${{ runner.temp }}\gstreamer-1.0-devel-msvc-x86_64-1.18.1.msi /passive ADDLOCAL=ALL
-
-      - name: Create build directory
-        run: mkdir ${{ runner.temp }}\shadow_build_dir
-
-      - name: Set up Visual Studio shell
-        uses: egor-tensin/vs-shell@v2
+      # Qt5.15.2는 보통 MSVC2019(v142)랑 궁합이 제일 좋음
+      - name: Setup MSVC 2019 (v142)
+        uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+          toolset: 14.2
 
-      - name: Build (capture + locate obj)
-        working-directory: ${{ runner.temp }}\shadow_build_dir
+      - name: Install Qt 5.15.2 (MSVC 2019)
+        uses: jurplel/install-qt-action@v4
+        id: qt
+        with:
+          version: "5.15.2"
+          arch: "win64_msvc2019_64"
+          cache: true
+          # 레포 CMake가 요구하는 모듈에 맞춰 조절
+          modules: "qtlocation qtpositioning"
+
+      - name: Configure (CMake)
         run: |
-          @echo on
-          qmake -r D:\a\qgroundcontrol\qgroundcontrol\qgroundcontrol.pro CONFIG+=installer CONFIG+=DailyBuild
-          findstr /n /i "QGroundControl_pch.obj:" Makefile
-          findstr /n /i "precompile_header" Makefile
-          jom -n | findstr /i pch
-          jom -n staging\QGroundControl.exe | findstr /i pch
+          cmake -S . -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=${env:BUILD_TYPE} `
+            -DCMAKE_PREFIX_PATH="${{ steps.qt.outputs.qt_dir }}"
 
-          jom -j1 > build.log 2>&1
+      - name: Build
+        run: |
+          cmake --build build --config ${env:BUILD_TYPE} --parallel
 
-      - name: Upload build log
-        if: always()
+      - name: Install (staging)
+        run: |
+          cmake --install build --config ${env:BUILD_TYPE} --prefix "$pwd\staging"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
-          path: ${{ runner.temp }}\shadow_build_dir\build.log
-
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: QGroundControl-installer
-          path: ${{ runner.temp }}\shadow_build_dir\staging\QGroundControl-installer.exe
+          name: QGC-Qt5-CMake-${{ env.BUILD_TYPE }}
+          path: staging
