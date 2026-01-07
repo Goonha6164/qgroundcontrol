@@ -32,8 +32,10 @@
 #include "UdpProto.h"
 
 // GStreamer
+#if defined(QGC_GST_STREAMING)
 #include <gst/gst.h>
 #include <glib.h>
+#endif
 
 // ======================== 설정 ========================
 // (A) UDP 변환/포워딩
@@ -299,6 +301,7 @@ static void udp_thread_main() {
 }
 
 // ======================== Thread B: relay GStreamer ========================
+#if defined(QGC_GST_STREAMING)
 struct GstCtx {
     GMainLoop* loop = nullptr;
     GstElement* pipeline = nullptr;
@@ -387,6 +390,7 @@ static void rtp_thread_main() {
 
     if (stop.joinable()) stop.join();
 }
+#endif
 
 extern "C" bool relay_start() {
     if (g_running.exchange(true)) return true;
@@ -394,7 +398,9 @@ extern "C" bool relay_start() {
     g_stop.store(false);
 
     g_udpThread = std::thread(udp_thread_main);
+#if defined(QGC_GST_STREAMING)
     g_rtpThread = std::thread(rtp_thread_main);
+#endif
 
     return true;
 }
@@ -409,8 +415,10 @@ extern "C" void relay_stop() {
 
     if (g_udpThread.joinable()) g_udpThread.join();
     std::cout << "Close UDP socket" << std::endl;
+#if defined(QGC_GST_STREAMING)
     if (g_rtpThread.joinable()) g_rtpThread.join();
     std::cout << "Close RTP streaming" << std::endl;
+#endif
 
     g_running.store(false);
     
