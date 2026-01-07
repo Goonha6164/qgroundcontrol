@@ -59,7 +59,7 @@ jobs:
       
       - name: Install Qt 5.15.2 (with modules)
         run: |
-          python -m aqt install-qt windows desktop --modules 5.15.2 win64_msvc2019_64
+          python -m aqt install-qt windows desktop --modules 5.15.2
 
 
 
