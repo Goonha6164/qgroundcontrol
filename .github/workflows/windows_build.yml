@@ -82,7 +82,7 @@ jobs:
           cmake -S . -B build -G Ninja ^
             -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
             -DCMAKE_PREFIX_PATH="%Qt5_Dir%" ^
-            -DQGC_ENABLE_GST_VIDEOSTREAMING=ON
+            #-DQGC_ENABLE_GST_VIDEOSTREAMING=ON
 
       - name: Build
         run: |
