@@ -47,7 +47,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install "aqtinstall==2.1.0"
           python -m aqt version
-          python -m aqt list-qt --modules 5.15.2
+          python -m aqt list-qt --modules 5.15.2 win64_msvc2019_64
           python -m aqt install-qt -h
 
       #- name: Install Qt ${{ env.QT_VERSION }} (${{ env.QT_ARCH }})
@@ -60,7 +60,7 @@ jobs:
       
       - name: Install Qt 5.15.2 (with modules)
         run: |
-          python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64
+          python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 --modules qtlocation qtpositioning
 
 
 
