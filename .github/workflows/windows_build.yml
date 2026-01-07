@@ -80,26 +80,30 @@ jobs:
         with:
           arch: x64
 
-      - name: Build (capture logs)
+      - name: Build (capture + locate obj)
         working-directory: ${{ runner.temp }}\shadow_build_dir
         run: |
           @echo on
-          echo ===== env ===== > build.log
-          echo DATE: %DATE% %TIME% >> build.log
-          echo WORKDIR: %CD% >> build.log
-          echo QT: %Qt5_Dir% >> build.log
-          echo ===== qmake ===== >> build.log
+          qmake -r ${{ env.SOURCE_DIR }}\qgroundcontrol.pro "OBJECTS_DIR=." "MOC_DIR=generated" "RCC_DIR=generated" "UI_DIR=generated" CONFIG+=installer CONFIG+=${{ env.BUILD_TYPE }} || exit /b 1
 
-          qmake -r ${{ env.SOURCE_DIR }}\qgroundcontrol.pro CONFIG+=installer CONFIG+=${{ env.BUILD_TYPE }} >> build.log 2>&1
-          if errorlevel 1 (
-            echo QMAKE FAILED >> build.log
-            exit /b 1
-          )
-
-          echo ===== jom ===== >> build.log
           ${{ runner.temp }}\jom\jom -j1 >> build.log 2>&1
           if errorlevel 1 (
-            echo JOM FAILED >> build.log
+            echo ===== FIND QGCMapEngine.obj anywhere under build dir ===== >> build.log
+            dir /s /b QGCMapEngine.obj >> build.log 2>&1
+
+            echo ===== LIST any QGCMap*.obj in build dir ===== >> build.log
+            dir /s /b QGCMap*.obj >> build.log 2>&1
+
+            echo ===== GREP Makefile for QGCMapEngine ===== >> build.log
+            type Makefile | findstr /i QGCMapEngine >> build.log 2>&1
+
+            echo ===== DUMP LINK RESPONSE FILES ===== >> build.log
+            dir /b /s "%TEMP%\QGroundControl.exe.*.jom" >> build.log 2>&1
+            for /f "delims=" %%F in ('dir /b /s "%TEMP%\QGroundControl.exe.*.jom" 2^>nul') do (
+              echo ====== %%F ====== >> build.log
+              type "%%F" >> build.log
+            )
+
             exit /b 1
           )
 
