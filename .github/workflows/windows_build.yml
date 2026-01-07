@@ -86,19 +86,10 @@ jobs:
           @echo on
           qmake -r ${{ env.SOURCE_DIR }}\qgroundcontrol.pro "OBJECTS_DIR=." "MOC_DIR=generated" "RCC_DIR=generated" "UI_DIR=generated" CONFIG+=installer CONFIG+=${{ env.BUILD_TYPE }} || exit /b 1
 
-          echo ===== FIND PCH TARGET LINES ===== >> build.log
-          type Makefile | findstr /i pch >> build.log 2>&1
-          dir /b Makefile* >> build.log 2>&1
-          for %F in (Makefile*) do (
-            echo ===== %F ===== >> build.log
-            type %F | findstr /i pch >> build.log 2>&1
-          )
-          
-          echo ===== TRY COMMON PCH TARGET NAMES ===== >> build.log
-          ${{ runner.temp }}\jom\jom release\QGroundControl_pch.obj -j1 >> build.log 2>&1
-          ${{ runner.temp }}\jom\jom debug\QGroundControl_pch.obj -j1 >> build.log 2>&1
+          rem --- build PCH first (exact target name!) ---
           ${{ runner.temp }}\jom\jom .\QGroundControl_pch.obj -j1 >> build.log 2>&1
-          ${{ runner.temp }}\jom\jom QGroundControl_pch.obj -j1 >> build.log 2>&1
+          if errorlevel 1 exit /b 1
+          if not exist QGroundControl_pch.obj (echo PCH OBJ NOT CREATED & dir & exit /b 1)
           
           ${{ runner.temp }}\jom\jom -j1 >> build.log 2>&1
           if errorlevel 1 (
