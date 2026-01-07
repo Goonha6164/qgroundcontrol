@@ -45,7 +45,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install "aqtinstall==2.1.0"
-          python -m aqt list-qt --modules 5.15.2 win64_msvc2019_64
+          python -m aqt list-qt windows desktop --modules 5.15.2 win64_msvc2019_64
           python -m aqt install-qt -h
 
       #- name: Install Qt ${{ env.QT_VERSION }} (${{ env.QT_ARCH }})
@@ -58,7 +58,7 @@ jobs:
       
       - name: Install Qt 5.15.2 (with modules)
         run: |
-          python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 --modules all
+          python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 --outputdir %GITHUB_WORKSPACE%\Qt --modules all
 
 
 
@@ -71,18 +71,11 @@ jobs:
 
       - name: Configure (CMake)
         run: |
-          set QT_ROOT=%GITHUB_WORKSPACE%\Qt\5.15.2\msvc2019_64
-          dir "%QT_ROOT%\lib\cmake\Qt5"
-          dir "%QT_ROOT%\lib\cmake\Qt5Location"
-          dir "%QT_ROOT%\lib\cmake\Qt5Positioning"
-          
-          set "Qt5_DIR=%QT_ROOT%\lib\cmake\Qt5"
+          set "Qt5_DIR=%GITHUB_WORKSPACE%\Qt\5.15.2\msvc2019_64\lib\cmake\Qt5"
           dir "%Qt5_DIR%"
 
           echo Qt5_Dir=%Qt5_Dir%
-          if "%Qt5_Dir%"=="" ( echo ERROR: Qt5_Dir not set & exit /b 1 )
 
-          rem --- out-of-source build ---
           rmdir /s /q build 2>nul
           mkdir build
 
