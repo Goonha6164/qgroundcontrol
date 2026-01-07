@@ -85,7 +85,7 @@ jobs:
         run: |
           @echo on
           qmake -r ${{ env.SOURCE_DIR }}\qgroundcontrol.pro "OBJECTS_DIR=." "MOC_DIR=generated" "RCC_DIR=generated" "UI_DIR=generated" CONFIG+=installer CONFIG+=${{ env.BUILD_TYPE }} || exit /b 1
-
+          ${{ runner.temp }}\jom\jom QGroundControl_pch.obj -j1 >> build.log 2>&1
           ${{ runner.temp }}\jom\jom -j1 >> build.log 2>&1
           if errorlevel 1 (
             echo ===== FIND QGCMapEngine.obj anywhere under build dir ===== >> build.log
