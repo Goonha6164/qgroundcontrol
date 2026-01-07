@@ -75,6 +75,11 @@ jobs:
           dir "%Qt5_DIR%"
 
           echo Qt5_Dir=%Qt5_Dir%
+          
+          cd /d %GITHUB_WORKSPACE%
+          dir windows 2>nul
+          dir windows\QGroundControl.rc 2>nul
+          dir /s /b *QGroundControl.rc*
 
           rmdir /s /q build 2>nul
           mkdir build
