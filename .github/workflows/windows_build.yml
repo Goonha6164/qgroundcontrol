@@ -85,32 +85,12 @@ jobs:
         run: |
           @echo on
           qmake -r D:\a\qgroundcontrol\qgroundcontrol\qgroundcontrol.pro CONFIG+=installer CONFIG+=DailyBuild
-          
-          rem --- build PCH first (exact target name!) ---
-          ${{ runner.temp }}\jom\jom .\QGroundControl_pch.obj -j1 >> build.log 2>&1
-          if errorlevel 1 exit /b 1
-          if not exist QGroundControl_pch.obj (echo PCH OBJ NOT CREATED & dir & exit /b 1)
-          
-          ${{ runner.temp }}\jom\jom -j1 >> build.log 2>&1
-          if errorlevel 1 (
-            echo ===== FIND QGCMapEngine.obj anywhere under build dir ===== >> build.log
-            dir /s /b QGCMapEngine.obj >> build.log 2>&1
+          findstr /n /i "QGroundControl_pch.obj:" Makefile
+          findstr /n /i "precompile_header" Makefile
+          jom -n | findstr /i pch
+          jom -n staging\QGroundControl.exe | findstr /i pch
 
-            echo ===== LIST any QGCMap*.obj in build dir ===== >> build.log
-            dir /s /b QGCMap*.obj >> build.log 2>&1
-
-            echo ===== GREP Makefile for QGCMapEngine ===== >> build.log
-            type Makefile | findstr /i QGCMapEngine >> build.log 2>&1
-
-            echo ===== DUMP LINK RESPONSE FILES ===== >> build.log
-            dir /b /s "%TEMP%\QGroundControl.exe.*.jom" >> build.log 2>&1
-            for /f "delims=" %%F in ('dir /b /s "%TEMP%\QGroundControl.exe.*.jom" 2^>nul') do (
-              echo ====== %%F ====== >> build.log
-              type "%%F" >> build.log
-            )
-
-            exit /b 1
-          )
+          jom -j1 > build.log 2>&1
 
       - name: Upload build log
         if: always()
