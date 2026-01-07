@@ -43,7 +43,7 @@ jobs:
 
       - name: Install aqtinstall (pinned)
         run: |
-          python -V
+          python -m aqt list-qt -h
           python -m pip --version
           python -m pip install --upgrade pip
           python -m pip install "aqtinstall==2.1.0"
