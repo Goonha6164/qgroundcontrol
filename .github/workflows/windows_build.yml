@@ -74,12 +74,12 @@ jobs:
           set "Qt5_DIR=%GITHUB_WORKSPACE%\Qt\5.15.2\msvc2019_64\lib\cmake\Qt5"
           dir "%Qt5_DIR%"
 
-          echo Qt5_Dir=%Qt5_Dir%
+          #echo Qt5_Dir=%Qt5_Dir%
           
-          cd /d %GITHUB_WORKSPACE%
-          dir windows 2>nul
-          dir windows\QGroundControl.rc 2>nul
-          dir /s /b *QGroundControl.rc*
+          #cd /d %GITHUB_WORKSPACE%
+          #dir windows 2>nul
+          #dir windows\QGroundControl.rc 2>nul
+          #dir /s /b *QGroundControl.rc*
 
           rmdir /s /q build 2>nul
           mkdir build
