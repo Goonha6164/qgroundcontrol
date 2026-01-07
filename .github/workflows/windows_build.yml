@@ -43,12 +43,11 @@ jobs:
 
       - name: Install aqtinstall (pinned)
         run: |
-          python -m aqt list-qt -h
           python -m pip --version
           python -m pip install --upgrade pip
           python -m pip install "aqtinstall==2.1.0"
           python -m aqt version
-          python -m aqt list-qt windows desktop --modules 5.15.2 
+          python -m aqt list-qt -h
 
       #- name: Install Qt ${{ env.QT_VERSION }} (${{ env.QT_ARCH }})
       #  uses: jurplel/install-qt-action@v4
