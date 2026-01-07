@@ -24,7 +24,7 @@ jobs:
       QT_VERSION: "5.15.2"
       QT_ARCH: "win64_msvc2019_64"
       BUILD_TYPE: "Release"
-      GST_VERSION: "1.22.9"
+      GST_VERSION: "1.16.3"
       GST_ROOT: "%GITHUB_WORKSPACE%\\gstreamer\\1.0\\msvc_x86_64"
 
     steps:
