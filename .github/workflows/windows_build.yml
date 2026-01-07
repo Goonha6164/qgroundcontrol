@@ -84,8 +84,8 @@ jobs:
         working-directory: ${{ runner.temp }}\shadow_build_dir
         run: |
           @echo on
-          qmake -r ${{ env.SOURCE_DIR }}\qgroundcontrol.pro "OBJECTS_DIR=." "MOC_DIR=generated" "RCC_DIR=generated" "UI_DIR=generated" CONFIG+=installer CONFIG+=${{ env.BUILD_TYPE }} || exit /b 1
-
+          qmake -r D:\a\qgroundcontrol\qgroundcontrol\qgroundcontrol.pro CONFIG+=installer CONFIG+=DailyBuild
+          
           rem --- build PCH first (exact target name!) ---
           ${{ runner.temp }}\jom\jom .\QGroundControl_pch.obj -j1 >> build.log 2>&1
           if errorlevel 1 exit /b 1
