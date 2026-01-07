@@ -80,33 +80,35 @@ jobs:
         with:
           arch: x64
 
-      - name: Build (show why obj missing)
+      - name: Build (capture logs)
         working-directory: ${{ runner.temp }}\shadow_build_dir
         run: |
           @echo on
-          echo TEMP=%TEMP%
+          echo ===== env ===== > build.log
+          echo DATE: %DATE% %TIME% >> build.log
+          echo WORKDIR: %CD% >> build.log
+          echo QT: %Qt5_Dir% >> build.log
+          echo ===== qmake ===== >> build.log
 
-          qmake -r ${{ env.SOURCE_DIR }}\qgroundcontrol.pro CONFIG+=installer CONFIG+=${{ env.BUILD_TYPE }} || exit /b 1
-
-          rem ---- build ----
-          ${{ runner.temp }}\jom\jom -j1
+          qmake -r ${{ env.SOURCE_DIR }}\qgroundcontrol.pro CONFIG+=installer CONFIG+=${{ env.BUILD_TYPE }} >> build.log 2>&1
           if errorlevel 1 (
-            echo ===== jom failed (compile errors above) =====
+            echo QMAKE FAILED >> build.log
             exit /b 1
           )
 
-          rem ---- if link fails later, dump obj + response file ----
-          echo ===== check obj exists =====
-          dir /b QGCMapEngine.obj
-          echo ===== find any QGCMap*.obj =====
-          dir /b QGCMap*.obj
-
-          echo ===== dump link response files =====
-          dir /b /s "%TEMP%\QGroundControl.exe.*.jom"
-          for /f "delims=" %%F in ('dir /b /s "%TEMP%\QGroundControl.exe.*.jom" 2^>nul') do (
-            echo ====== %%F ======
-            type "%%F"
+          echo ===== jom ===== >> build.log
+          ${{ runner.temp }}\jom\jom -j1 >> build.log 2>&1
+          if errorlevel 1 (
+            echo JOM FAILED >> build.log
+            exit /b 1
           )
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ${{ runner.temp }}\shadow_build_dir\build.log
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
