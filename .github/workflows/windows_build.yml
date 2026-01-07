@@ -47,7 +47,7 @@ jobs:
           python -m pip --version
           python -m pip install --upgrade pip
           python -m pip install "aqtinstall==2.1.0"
-          python -m aqt --version
+          python -m aqt version
 
       #- name: Install Qt ${{ env.QT_VERSION }} (${{ env.QT_ARCH }})
       #  uses: jurplel/install-qt-action@v4
