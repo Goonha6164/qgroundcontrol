@@ -58,7 +58,7 @@ jobs:
 
       - name: Install GStreamer (MSVC x64)
         run: |
-          set "GST_BASE_URL=https://gstreamer.freedesktop.org/data/pkg/windows/%GST_VERSION%/msvc"
+          set "GST_BASE_URL=https://gstreamer.freedesktop.org/data/pkg/windows/%GST_VERSION%"
           curl -L -o gst-runtime.msi %GST_BASE_URL%/gstreamer-1.0-msvc-x86_64-%GST_VERSION%.msi
           curl -L -o gst-devel.msi   %GST_BASE_URL%/gstreamer-1.0-devel-msvc-x86_64-%GST_VERSION%.msi
           msiexec /i gst-runtime.msi /qn /norestart INSTALLDIR=%GST_ROOT%
