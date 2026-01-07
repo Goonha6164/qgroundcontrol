@@ -51,15 +51,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install "aqtinstall==2.1.0"
           python -m aqt list-qt windows desktop --modules 5.15.2 win64_msvc2019_64
-          python -m aqt install-qt -h
-
-      #- name: Install Qt ${{ env.QT_VERSION }} (${{ env.QT_ARCH }})
-      #  uses: jurplel/install-qt-action@v4
-      #  with:
-      #    version: ${{ env.QT_VERSION }}
-      #    arch: ${{ env.QT_ARCH }}
-      #    modules: qtlocation qtpositioning
-      #   cache: true
       
       - name: Install Qt 5.15.2 (with modules)
         run: |
@@ -67,8 +58,9 @@ jobs:
 
       - name: Install GStreamer (MSVC x64)
         run: |
-          curl -L -o gst-runtime.msi https://gstreamer.freedesktop.org/data/pkg/windows/%GST_VERSION%/msvc/gstreamer-1.0-msvc-x86_64-%GST_VERSION%-runtime.msi
-          curl -L -o gst-devel.msi   https://gstreamer.freedesktop.org/data/pkg/windows/%GST_VERSION%/msvc/gstreamer-1.0-msvc-x86_64-%GST_VERSION%-devel.msi
+          set "GST_BASE_URL=https://gstreamer.freedesktop.org/data/pkg/windows/%GST_VERSION%/msvc"
+          curl -L -o gst-runtime.msi %GST_BASE_URL%/gstreamer-1.0-msvc-x86_64-%GST_VERSION%.msi
+          curl -L -o gst-devel.msi   %GST_BASE_URL%/gstreamer-1.0-devel-msvc-x86_64-%GST_VERSION%.msi
           msiexec /i gst-runtime.msi /qn /norestart INSTALLDIR=%GST_ROOT%
           msiexec /i gst-devel.msi /qn /norestart INSTALLDIR=%GST_ROOT%
           echo %GST_ROOT%\bin>> %GITHUB_PATH%
