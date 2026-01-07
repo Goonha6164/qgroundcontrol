@@ -61,7 +61,7 @@ jobs:
           set "GST_BASE_URL=https://gstreamer.freedesktop.org/data/pkg/windows/%GST_VERSION%"
           curl -L -o gst-runtime.msi %GST_BASE_URL%/gstreamer-1.0-msvc-x86_64-%GST_VERSION%.msi
           curl -L -o gst-devel.msi   %GST_BASE_URL%/gstreamer-1.0-devel-msvc-x86_64-%GST_VERSION%.msi
-          msiexec /i gst-runtime.msi /qn /norestart INSTALLDIR=%GST_ROOT%
+          msiexec /i gst-runtime.msi /qn /norestart /l*v gst-runtime.log INSTALLDIR=%GST_ROOT%
           msiexec /i gst-devel.msi /qn /norestart INSTALLDIR=%GST_ROOT%
           echo %GST_ROOT%\bin>> %GITHUB_PATH%
           echo GSTREAMER_1_0_ROOT_MSVC_X86_64=%GST_ROOT%>> %GITHUB_ENV%
