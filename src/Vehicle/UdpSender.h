@@ -1,21 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <cstddef>
-
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#else
 #include <netinet/in.h>
-#endif
-
-#ifdef _WIN32
-using SocketHandle = SOCKET;
-static const SocketHandle kInvalidSocket = INVALID_SOCKET;
-#else
-using SocketHandle = int;
-static const SocketHandle kInvalidSocket = -1;
-#endif
 
 class UdpSender {
     public:
@@ -32,7 +18,7 @@ class UdpSender {
     UdpSender() = default;
 
     uint64_t now_us() const;
-    SocketHandle sock{kInvalidSocket};
+    int sock{-1};
     sockaddr_in dst{};
     bool inited{false};
 

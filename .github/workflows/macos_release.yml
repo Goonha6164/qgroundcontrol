@@ -1,0 +1,134 @@
+name: MacOS Release
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'Stable*'
+    tags:
+      - 'v*'
+    paths-ignore:
+      - 'docs/**'
+  pull_request:
+    branches:
+    - '*'
+    paths-ignore:
+      - 'docs/**'
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SOURCE_DIR:   ${{ github.workspace }}
+  QT_VERSION:   5.15.2
+  ARTIFACT:     QGroundControl.dmg
+  BUILD_TYPE:   ${{ fromJSON('["DailyBuild", "StableBuild"]')[ github.ref_type == 'tag' || contains(github.ref, 'Stable_' ) ] }}
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, macos-13]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Get all tags for correct version determination
+        working-directory:  ${{ github.workspace }}
+        run: |
+          git fetch --all --tags -f --depth 1
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version:      ${{ env.QT_VERSION }}
+          aqtversion:   ==3.1.*
+          host:         mac
+          target:       desktop
+          dir:          ${{ runner.temp }}
+          modules:      qtcharts
+          setup-python: true
+
+      - name: Install Gstreamer
+        run: |
+          wget https://gstreamer.freedesktop.org/data/pkg/osx/1.18.6/gstreamer-1.0-devel-1.18.6-x86_64.pkg
+          wget https://gstreamer.freedesktop.org/data/pkg/osx/1.18.6/gstreamer-1.0-1.18.6-x86_64.pkg
+          for package in *.pkg ;
+            do sudo installer -verbose -pkg "$package" -target /
+          done
+
+      - name: Detect Architecture
+        run: |
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "arm64" ]; then
+            ARCH="silicon"
+          fi
+          echo "ARCH=$ARCH" >> $GITHUB_ENV
+
+      - name: Create build directory
+        run:  mkdir ${{ runner.temp }}/shadow_build_dir
+
+      - name: Setup Xcode
+        run: |
+          sudo xcode-select --reset
+          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+          clang --version  # To verify compiler is available
+
+      - name: Build
+        working-directory: ${{ runner.temp }}/shadow_build_dir
+        run: |
+          export JOBS=$((`sysctl -n hw.ncpu`+1))
+          # Get SDK path
+          export SDKROOT=$(xcrun --show-sdk-path)
+          export MACOSX_DEPLOYMENT_TARGET=10.14
+          # Set compiler paths explicitly
+          export QMAKE_MAC_SDK=macosx
+          export QMAKE_APPLE_DEVICE_ARCHS=x86_64
+          export CPATH="$SDKROOT/usr/include"
+          export LIBRARY_PATH="$SDKROOT/usr/lib"
+          export QMAKE_DEFAULT_LIBDIRS="$SDKROOT/usr/lib"
+          export QMAKE_DEFAULT_INCDIRS="$SDKROOT/usr/include"
+          qmake -r ${SOURCE_DIR}/qgroundcontrol.pro \
+            CONFIG+=installer \
+            CONFIG+=${BUILD_TYPE} \
+            -spec macx-clang \
+            QMAKE_APPLE_DEVICE_ARCHS=x86_64
+          make -j$JOBS
+
+      - name: Save artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: QGroundControl-${{ env.ARCH }}.dmg
+          path: ${{ runner.temp }}/shadow_build_dir/package/${{ env.ARTIFACT }}
+
+      - name: Publish artifact to GitHub release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ runner.temp }}/shadow_build_dir/package/${{ env.ARTIFACT }}
+          asset_name: QGroundControl-${{ env.ARCH }}.dmg
+          tag: ${{ github.ref }}
+          overwrite: true
+
+      - name: Upload build to S3 Bucket
+        if:                 github.event_name == 'push'
+        working-directory:  ${{ runner.temp }}/shadow_build_dir/package
+        run: |
+              aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+              aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+              aws s3 cp ${ARTIFACT} s3://qgroundcontrol/builds/${{ github.ref_name }}/QGroundControl-${{ env.ARCH }}.dmg --region us-west-2 --acl public-read
+
+      - name: Upload tagged stable build to S3 latest Bucket
+        if:                 github.event_name == 'push' && github.ref_type == 'tag'
+        working-directory:  ${{ runner.temp }}/shadow_build_dir/package
+        run: |
+              aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+              aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+              aws s3 cp ${ARTIFACT} s3://qgroundcontrol/latest/QGroundControl-${{ env.ARCH }}.dmg --region us-west-2 --acl public-read

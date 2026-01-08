@@ -63,9 +63,6 @@ localization/qgroundcontrol/
 *.autosave
 .settings/
 
-!/.github/actions/
-!/.github/actions/**
-
 # iOS Generated files
 ios/iOSForAppStore-Info.plist
 

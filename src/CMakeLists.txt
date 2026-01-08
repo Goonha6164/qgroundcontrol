@@ -125,10 +125,6 @@ target_link_libraries(qgc
         Threads::Threads
 )
 
-if(WIN32)
-	target_link_libraries(qgc PRIVATE ws2_32)
-endif()
-
 set_source_files_properties(QGCApplication.cc PROPERTIES COMPILE_DEFINITIONS APP_VERSION_STR="${APP_VERSION_STR}")
 
 add_subdirectory(ui)
@@ -231,3 +227,4 @@ target_include_directories(qgc
 		${CMAKE_CURRENT_BINARY_DIR}/qgc_autogen/include # HACK: AUTOUIC paths not inheriting?
 		${CMAKE_CURRENT_BINARY_DIR}/qgc_autogen/include_Debug
 )
+

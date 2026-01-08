@@ -18,15 +18,3 @@ Key Links:
 * [Discussion/Support](https://docs.qgroundcontrol.com/en/Support/Support.html)
 * [Contributing](https://dev.qgroundcontrol.com/en/contribute/)
 * [License](https://github.com/mavlink/qgroundcontrol/blob/master/COPYING.md)
-
-
-git clone --recursive https://github.com/mavlink/qgroundcontrol.git
-cd qgroundcontrol/
-git checkout v4.4.5
-
-mkdir  build
-cd build
-
-cmake -DCMAKE_BUILD_TYPE=Debug _DCMAKE_PREFIX_PATH=/home/vsa/Qt/5.15.2/gcc_64/lib/cmake -G Ninja ..
-cmake --build . --config Debug
-./QGroundControl
