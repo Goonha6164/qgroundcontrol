@@ -63,11 +63,6 @@ jobs:
         shell: cmd
 
     steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@v2
-        with:
-          egress-policy: audit
-
       - name: Checkout repo
         uses: actions/checkout@v6
         with:
@@ -87,15 +82,19 @@ jobs:
         shell: pwsh
         run: |
           $gstVersion = "${{ steps.config.outputs.gstreamer_windows_version }}"
-          $gstRoot = $env:GST_ROOT
-          if ([string]::IsNullOrEmpty($gstRoot)) {
-            $gstRoot = Join-Path $env:GITHUB_WORKSPACE "gstreamer\1.0\msvc_x86_64"
-          }
-          set "GST_BASE_URL=https://gstreamer.freedesktop.org/data/pkg/windows/$gstVersion"
-          curl -L --retry 5 --retry-delay 5 --retry-all-errors --connect-timeout 30 -o gst-runtime.msi %GST_BASE_URL%/gstreamer-1.0-msvc-x86_64-%GST_VERSION%.msi
-          curl -L --retry 5 --retry-delay 5 --retry-all-errors --connect-timeout 30 -o gst-devel.msi   %GST_BASE_URL%/gstreamer-1.0-devel-msvc-x86_64-%GST_VERSION%.msi
-          msiexec /i gst-runtime.msi /qn /norestart INSTALLDIR=$gstRoot
-          msiexec /i gst-devel.msi /qn /norestart INSTALLDIR=$gstRoot
+          $gstRoot = Join-Path $env:GITHUB_WORKSPACE "gstreamer\1.0\msvc_x86_64"
+          New-Item -ItemType Directory -Force -Path $gstRoot | Out-Null
+
+          $baseUrl = "https://gstreamer.freedesktop.org/data/pkg/windows/$gstVersion"
+          $runtimeMsi = Join-Path $env:TEMP "gstreamer-runtime.msi"
+          $develMsi = Join-Path $env:TEMP "gstreamer-devel.msi"
+
+          Invoke-WebRequest "$baseUrl/gstreamer-1.0-msvc-x86_64-$gstVersion.msi" -OutFile $runtimeMsi
+          Invoke-WebRequest "$baseUrl/gstreamer-1.0-devel-msvc-x86_64-$gstVersion.msi" -OutFile $develMsi
+
+          Start-Process msiexec.exe -Wait -ArgumentList "/i `"$runtimeMsi`" /qn /norestart INSTALLDIR=`"$gstRoot`""
+          Start-Process msiexec.exe -Wait -ArgumentList "/i `"$develMsi`" /qn /norestart INSTALLDIR=`"$gstRoot`""
+
           Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $gstRoot "bin")
           Add-Content -Path $env:GITHUB_ENV -Value "GSTREAMER_1_0_ROOT_MSVC_X86_64=$gstRoot"
           Add-Content -Path $env:GITHUB_ENV -Value "PKG_CONFIG_PATH=$gstRoot\lib\pkgconfig"
