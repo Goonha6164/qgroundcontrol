@@ -25,7 +25,8 @@ jobs:
       QT_ARCH: "win64_msvc2019_64"
       BUILD_TYPE: "Release"
       GST_VERSION: "1.16.3"
-      GST_ROOT: "${{ github.workspace }}\\gstreamer\\1.0\\msvc_x86_64"
+      GST_INSTALLDIR: "${{ github.workspace }}\\gstreamer"
+      GST_ROOT: "${{ github.workspace }}\\gstreamer\\1.0\\x86_64"
 
     steps:
       - name: Checkout
@@ -72,13 +73,12 @@ jobs:
       - name: Install GStreamer (MSVC x64)
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
-          if not exist "%GST_ROOT%" mkdir "%GST_ROOT%" 2>nul
-          dir %GST_ROOT%
+          if not exist "%GST_INSTALLDIR%" mkdir "%GST_INSTALLDIR%" 2>nul
           set "GST_BASE_URL=https://gstreamer.freedesktop.org/data/pkg/windows/%GST_VERSION%"
           curl -L -o gst-runtime.msi %GST_BASE_URL%/gstreamer-1.0-msvc-x86_64-%GST_VERSION%.msi
           curl -L -o gst-devel.msi %GST_BASE_URL%/gstreamer-1.0-devel-msvc-x86_64-%GST_VERSION%.msi
-          msiexec /i gst-runtime.msi /qn /norestart /l*v gst-runtime.log INSTALLDIR=%GST_ROOT%
-          msiexec /i gst-devel.msi /qn /norestart /l*v gst-devel.log INSTALLDIR=%GST_ROOT%
+          msiexec /i gst-runtime.msi /qn /norestart /l*v gst-runtime.log INSTALLDIR="%GST_INSTALLDIR%"
+          msiexec /i gst-devel.msi /qn /norestart /l*v gst-devel.log INSTALLDIR="%GST_INSTALLDIR%"
           echo %GST_ROOT%\bin>> %GITHUB_PATH%
           echo GSTREAMER_1_0_ROOT_MSVC_X86_64=%GST_ROOT%>> %GITHUB_ENV%
           echo PKG_CONFIG_PATH=%GST_ROOT%\lib\pkgconfig>> %GITHUB_ENV%
