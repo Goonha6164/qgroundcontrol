@@ -34,6 +34,15 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Cache Qt and GStreamer
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}\Qt
+            ${{ env.GST_ROOT }}
+          key: ${{ runner.os }}-qt-${{ env.QT_VERSION }}-gst-${{ env.GST_VERSION }}
+
       # Ninja는 있는 경우도 많지만, 확실히 깔아두면 덜 빡침
       - name: Install Ninja
         run: choco install ninja -y
@@ -53,10 +62,12 @@ jobs:
           python -m aqt list-qt windows desktop --modules 5.15.2 win64_msvc2019_64
       
       - name: Install Qt 5.15.2 (with modules)
+        if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 --outputdir %GITHUB_WORKSPACE%\Qt --modules all
 
       - name: Install GStreamer (MSVC x64)
+        if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           mkdir "%GST_ROOT%" 2>nul
           set "GST_BASE_URL=https://gstreamer.freedesktop.org/data/pkg/windows/%GST_VERSION%"
