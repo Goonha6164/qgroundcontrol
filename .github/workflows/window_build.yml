@@ -64,6 +64,7 @@ jobs:
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 --outputdir %GITHUB_WORKSPACE%\Qt --modules all
+          dir %GITHUB_WORKSPACE%\Qt\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll
 
       - name: Verify Qt deployment tools
         run: |

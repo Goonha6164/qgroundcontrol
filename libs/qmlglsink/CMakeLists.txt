@@ -1,5 +1,6 @@
 
 find_package(Qt5Gui ${QT_VERSION} CONFIG REQUIRED Private)
+find_package(Qt5Quick ${QT_VERSION} CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 
 add_library(qmlglsink
@@ -52,6 +53,7 @@ endif()
 target_link_libraries(qmlglsink
 	PUBLIC
 		Qt5::Core
+		Qt5::Quick
 		Qt5::OpenGL
 		Qt5::GuiPrivate
 		${GST_LINK_LIBRARIES}
