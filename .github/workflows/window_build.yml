@@ -139,6 +139,16 @@ jobs:
           for %%d in ("!EXE!") do set "EXE_DIR=%%~dpd"
           copy /y "!SHP!" "!EXE_DIR!"
 
+      - name: Copy GStreamer runtime DLLs
+        run: |
+          setlocal enabledelayedexpansion
+          set "EXE="
+          for /f "delims=" %%f in ('dir /s /b build\QGroundControl.exe') do set "EXE=%%f"
+          if not defined EXE (echo "QGroundControl.exe not found" & exit /b 1)
+          for %%d in ("!EXE!") do set "EXE_DIR=%%~dpd"
+          xcopy /y /i "%GST_ROOT%\bin\*.dll" "!EXE_DIR!" >nul
+          xcopy /y /e /i "%GST_ROOT%\lib\gstreamer-1.0" "!EXE_DIR!gstreamer-1.0" >nul
+
       - name: Locate QGroundControl.exe
         run: |
           dir /s /b build\QGroundControl.exe || (echo "QGroundControl.exe not found under build\" & exit /b 1)
