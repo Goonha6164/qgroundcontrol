@@ -25,7 +25,7 @@ jobs:
       QT_ARCH: "win64_msvc2019_64"
       BUILD_TYPE: "Release"
       GST_VERSION: "1.16.3"
-      GST_ROOT: "${{ github.workspace }}\\gstreamer\\1.0\\msvc_x86_64"
+      GST_ROOT: "%GITHUB_WORKSPACE%\\gstreamer\\1.0\\msvc_x86_64"
 
     steps:
       - name: Checkout
@@ -72,10 +72,11 @@ jobs:
       - name: Install GStreamer (MSVC x64)
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
-          mkdir "%GST_ROOT%" 2>nul
+          if not exist "%GST_ROOT%" mkdir "%GST_ROOT%" 2>nul
+          dir %GST_ROOT%
           set "GST_BASE_URL=https://gstreamer.freedesktop.org/data/pkg/windows/%GST_VERSION%"
-          curl -L --retry 5 --retry-delay 5 --retry-all-errors --connect-timeout 30 -o gst-runtime.msi %GST_BASE_URL%/gstreamer-1.0-msvc-x86_64-%GST_VERSION%.msi
-          curl -L --retry 5 --retry-delay 5 --retry-all-errors --connect-timeout 30 -o gst-devel.msi   %GST_BASE_URL%/gstreamer-1.0-devel-msvc-x86_64-%GST_VERSION%.msi
+          curl -L -o gst-runtime.msi %GST_BASE_URL%/gstreamer-1.0-msvc-x86_64-%GST_VERSION%.msi
+          curl -L -o gst-devel.msi %GST_BASE_URL%/gstreamer-1.0-devel-msvc-x86_64-%GST_VERSION%.msi
           msiexec /i gst-runtime.msi /qn /norestart /l*v gst-runtime.log INSTALLDIR=%GST_ROOT%
           msiexec /i gst-devel.msi /qn /norestart /l*v gst-devel.log INSTALLDIR=%GST_ROOT%
           echo %GST_ROOT%\bin>> %GITHUB_PATH%
@@ -84,7 +85,6 @@ jobs:
           set PKG_CONFIG_PATH=%GST_ROOT%\lib\pkgconfig
           set GSTREAMER_1_0_ROOT_MSVC_X86_64=%GST_ROOT%
           dir %GST_ROOT%\lib\pkgconfig\gstreamer-1.0.pc
-          dir deploy\windows\QGroundControl.rc
 
       # VS2019 + v142(14.29) 강제 고정
       - name: Set up MSVC devcmd (v142)
