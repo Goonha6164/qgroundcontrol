@@ -112,6 +112,10 @@ jobs:
         run: |
           cmake --build build --config %BUILD_TYPE% --parallel 2
 
+      - name: Check for shapelib artifacts
+        run: |
+          dir /s /b build\shp.*
+
       # (선택) 빌드 산출물 확인용: exe가 어디 생기는지 찍어보기
       - name: Locate QGroundControl.exe
         run: |
