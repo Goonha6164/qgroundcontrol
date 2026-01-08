@@ -66,6 +66,11 @@ jobs:
         run: |
           python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 --outputdir %GITHUB_WORKSPACE%\Qt --modules all
 
+      - name: Verify Qt deployment tools
+        run: |
+          dir /s /b %GITHUB_WORKSPACE%\Qt\*windeployqt.exe
+          dir /s /b %GITHUB_WORKSPACE%\Qt\*qwindows.dll
+
       - name: Install GStreamer (MSVC x64)
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
@@ -112,9 +117,29 @@ jobs:
         run: |
           cmake --build build --config %BUILD_TYPE% --parallel 2
 
+      - name: Run windeployqt
+        run: |
+          for /f "delims=" %%f in ('dir /s /b %GITHUB_WORKSPACE%\Qt\*windeployqt.exe') do set "WINDEPLOYQT=%%f"
+          if not defined WINDEPLOYQT (echo "windeployqt.exe not found" & exit /b 1)
+          for /f "delims=" %%f in ('dir /s /b build\QGroundControl.exe') do set "QGC_EXE=%%f"
+          if not defined QGC_EXE (echo "QGroundControl.exe not found" & exit /b 1)
+          "%WINDEPLOYQT%" "%QGC_EXE%"
+
       - name: Check for shapelib artifacts
         run: |
           dir /s /b build\shp.*
+
+      - name: Copy shp.dll next to exe
+        run: |
+          setlocal enabledelayedexpansion
+          set "SHP="
+          for /f "delims=" %%f in ('dir /s /b build\shp.dll') do set "SHP=%%f"
+          if not defined SHP (echo "shp.dll not found" & exit /b 1)
+          set "EXE="
+          for /f "delims=" %%f in ('dir /s /b build\QGroundControl.exe') do set "EXE=%%f"
+          if not defined EXE (echo "QGroundControl.exe not found" & exit /b 1)
+          for %%d in ("!EXE!") do set "EXE_DIR=%%~dpd"
+          copy /y "!SHP!" "!EXE_DIR!"
 
       # (선택) 빌드 산출물 확인용: exe가 어디 생기는지 찍어보기
       - name: Locate QGroundControl.exe
