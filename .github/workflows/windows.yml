@@ -1,0 +1,153 @@
+name: Windows (Qt5)
+
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - '**'
+    paths-ignore:
+      - 'docs/**'
+  pull_request:
+    paths:
+      - '.github/workflows/windows.yml'
+      - '.github/actions/**'
+      - 'deploy/windows/**'
+      - 'src/**'
+      - 'test/**'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - 'tools/setup/*windows*'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: false
+        default: 'Release'
+        type: choice
+        options:
+          - Release
+          - Debug
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  actions: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }} ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: ${{ inputs.build_type && fromJSON(format('["{0}"]', inputs.build_type)) || fromJSON('["Release"]') }}
+        variant: [amd64]
+        include:
+          - variant: amd64
+            os: windows-2019
+            host: windows
+            arch: win64_msvc2019_64
+            package: QGroundControl-installer-AMD64
+
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          fetch-tags: true
+
+      - name: Get build config
+        id: config
+        uses: ./.github/actions/build-config
+
+      - name: Common setup
+        uses: ./.github/actions/common
+
+      - name: Install GStreamer
+        if: matrix.arch == 'win64_msvc2019_64'
+        shell: pwsh
+        run: |
+          ./tools/setup/install-dependencies-windows.ps1 `
+            -GStreamerVersion ${{ steps.config.outputs.gstreamer_windows_version }} `
+            -SkipVulkan
+
+      - name: Setup cache
+        uses: ./.github/actions/cache
+        with:
+          host: ${{ matrix.host }}
+          target: ${{ matrix.arch }}
+          build-type: ${{ matrix.build_type }}
+          cpm-modules: ${{ runner.temp }}\build\cpm_modules
+          save-cache: ${{ github.event_name != 'pull_request' }}
+
+      - name: Install Qt ${{ steps.config.outputs.qt_version }}
+        uses: ./.github/actions/qt-install
+        with:
+          version: ${{ steps.config.outputs.qt_version }}
+          host: ${{ matrix.host }}
+          arch: ${{ matrix.arch }}
+          modules: ${{ steps.config.outputs.qt_modules }}
+
+      - name: Set up MSVC devcmd (v142)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          toolset: 14.29
+
+      - name: Configure
+        working-directory: ${{ runner.temp }}\build
+        run: |
+          cmake -S ${{ github.workspace }} -B . -G Ninja ^
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ^
+            -DCMAKE_PREFIX_PATH="%QT_ROOT_DIR%;%GSTREAMER_1_0_ROOT_MSVC_X86_64%" ^
+            -DQGC_ENABLE_GST_VIDEOSTREAMING=${{ matrix.arch == 'win64_msvc2019_64' && 'ON' || 'OFF' }} ^
+            -DQGC_GST_STREAMING=ON
+
+      - name: Build
+        working-directory: ${{ runner.temp }}\build
+        run: cmake --build . --target all --config ${{ matrix.build_type }} --parallel
+
+      - name: Verify Executable
+        if: matrix.build_type == 'Release'
+        working-directory: ${{ runner.temp }}\build\${{ matrix.build_type }}
+        run: QGroundControl.exe --simple-boot-test
+
+      - name: Create Installer
+        working-directory: ${{ runner.temp }}\build
+        run: cmake --install . --config ${{ matrix.build_type }}
+
+      - name: Attest Build Provenance
+        if: matrix.build_type == 'Release' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: '${{ runner.temp }}\build\${{ matrix.package }}.exe'
+
+      - name: Upload artifact (installer)
+        if: matrix.build_type == 'Release'
+        uses: ./.github/actions/upload
+        with:
+          artifact_name: ${{ matrix.package }}.exe
+          package_name: ${{ matrix.package }}
+          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_distribution_id: ${{ secrets.AWS_DISTRIBUTION_ID }}
+          upload_aws: false
