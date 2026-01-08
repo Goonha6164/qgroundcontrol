@@ -79,25 +79,19 @@ jobs:
 
       - name: Install GStreamer
         if: matrix.arch == 'win64_msvc2019_64'
-        shell: pwsh
+        shell: cmd
         run: |
-          $gstVersion = "${{ steps.config.outputs.gstreamer_windows_version }}"
-          $gstRoot = Join-Path $env:GITHUB_WORKSPACE "gstreamer\1.0\msvc_x86_64"
-          New-Item -ItemType Directory -Force -Path $gstRoot | Out-Null
-
-          $baseUrl = "https://gstreamer.freedesktop.org/data/pkg/windows/$gstVersion"
-          $runtimeMsi = Join-Path $env:TEMP "gstreamer-runtime.msi"
-          $develMsi = Join-Path $env:TEMP "gstreamer-devel.msi"
-
-          Invoke-WebRequest "$baseUrl/gstreamer-1.0-msvc-x86_64-$gstVersion.msi" -OutFile $runtimeMsi
-          Invoke-WebRequest "$baseUrl/gstreamer-1.0-devel-msvc-x86_64-$gstVersion.msi" -OutFile $develMsi
-
-          Start-Process msiexec.exe -Wait -ArgumentList "/i `"$runtimeMsi`" /qn /norestart INSTALLDIR=`"$gstRoot`""
-          Start-Process msiexec.exe -Wait -ArgumentList "/i `"$develMsi`" /qn /norestart INSTALLDIR=`"$gstRoot`""
-
-          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $gstRoot "bin")
-          Add-Content -Path $env:GITHUB_ENV -Value "GSTREAMER_1_0_ROOT_MSVC_X86_64=$gstRoot"
-          Add-Content -Path $env:GITHUB_ENV -Value "PKG_CONFIG_PATH=$gstRoot\lib\pkgconfig"
+          set "GST_VERSION=${{ steps.config.outputs.gstreamer_windows_version }}"
+          set "GST_ROOT=%GITHUB_WORKSPACE%\gstreamer\1.0\msvc_x86_64"
+          if not exist "%GST_ROOT%" mkdir "%GST_ROOT%"
+          set "GST_BASE_URL=https://gstreamer.freedesktop.org/data/pkg/windows/%GST_VERSION%"
+          curl -L --retry 5 --retry-delay 5 --retry-all-errors --connect-timeout 30 -o "%TEMP%\gstreamer-runtime.msi" %GST_BASE_URL%/gstreamer-1.0-msvc-x86_64-%GST_VERSION%.msi
+          curl -L --retry 5 --retry-delay 5 --retry-all-errors --connect-timeout 30 -o "%TEMP%\gstreamer-devel.msi" %GST_BASE_URL%/gstreamer-1.0-devel-msvc-x86_64-%GST_VERSION%.msi
+          msiexec /i "%TEMP%\gstreamer-runtime.msi" /qn /norestart INSTALLDIR="%GST_ROOT%"
+          msiexec /i "%TEMP%\gstreamer-devel.msi" /qn /norestart INSTALLDIR="%GST_ROOT%"
+          echo %GST_ROOT%\bin>> %GITHUB_PATH%
+          echo GSTREAMER_1_0_ROOT_MSVC_X86_64=%GST_ROOT%>> %GITHUB_ENV%
+          echo PKG_CONFIG_PATH=%GST_ROOT%\lib\pkgconfig>> %GITHUB_ENV%
 
       - name: Setup cache
         uses: ./.github/actions/cache
