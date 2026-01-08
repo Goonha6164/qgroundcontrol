@@ -86,6 +86,12 @@ jobs:
           set GSTREAMER_1_0_ROOT_MSVC_X86_64=%GST_ROOT%
           dir %GST_ROOT%\lib\pkgconfig\gstreamer-1.0.pc
 
+      - name: Export GStreamer env
+        run: |
+          echo %GST_ROOT%\bin>> %GITHUB_PATH%
+          echo GSTREAMER_1_0_ROOT_MSVC_X86_64=%GST_ROOT%>> %GITHUB_ENV%
+          echo PKG_CONFIG_PATH=%GST_ROOT%\lib\pkgconfig>> %GITHUB_ENV%
+
       # VS2019 + v142(14.29) 강제 고정
       - name: Set up MSVC devcmd (v142)
         uses: ilammy/msvc-dev-cmd@v1
@@ -151,4 +157,3 @@ jobs:
           path: |
             gst-runtime.log
             gst-devel.log
-

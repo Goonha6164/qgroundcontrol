@@ -16,18 +16,26 @@
 #include <cstdio>
 #include <chrono>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <BaseTsd.h>
+#else
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#endif
 
 #include "UdpProto.h"
 
 // GStreamer
+#if defined(QGC_GST_STREAMING)
 #include <gst/gst.h>
 #include <glib.h>
+#endif
 
 // ======================== 설정 ========================
 // (A) UDP 변환/포워딩
@@ -48,30 +56,84 @@ static std::atomic_bool g_stop{false};
 static std::thread g_udpThread;
 static std::thread g_rtpThread;
 
-// ======================== non-blocking ========================
-static bool set_nonblocking(int fd) {
+// ======================== socket helpers ========================
+using SocketHandle =
+#ifdef _WIN32
+    SOCKET;
+static const SocketHandle kInvalidSocket = INVALID_SOCKET;
+#else
+    int;
+static const SocketHandle kInvalidSocket = -1;
+#endif
+
+#ifdef _WIN32
+typedef SSIZE_T ssize_t;
+#endif
+
+static bool set_nonblocking(SocketHandle fd) {
+#ifdef _WIN32
+    u_long mode = 1;
+    return ::ioctlsocket(fd, FIONBIO, &mode) == 0;
+#else
     int flags = ::fcntl(fd, F_GETFL, 0);
     if (flags < 0) return false;
     return ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0;
+#endif
+}
+
+static void close_socket(SocketHandle fd) {
+#ifdef _WIN32
+    ::closesocket(fd);
+#else
+    ::close(fd);
+#endif
+}
+
+static bool socket_init() {
+#ifdef _WIN32
+    WSADATA wsaData{};
+    return ::WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
+#else
+    return true;
+#endif
+}
+
+static void socket_cleanup() {
+#ifdef _WIN32
+    ::WSACleanup();
+#endif
 }
 // static std::atomic_int sock{-1};
 // static std::atomic_int ssck{-1};
 // ======================== Thread A: UDP forward ========================
 static void udp_thread_main() {
+#ifdef _WIN32
+    if (!socket_init()) {
+        printf("WSAStartup failed.");
+        return;
+    }
+#endif
     ////////////////////////////////////////////
     // receiver socket ////////////////
     ////////////////////////////////////////////
     struct sockaddr_in serv, clnt;
     socklen_t clnt_sz = sizeof(clnt);
 
-    int sock = socket(PF_INET, SOCK_DGRAM, 0);
-    if (sock == -1) {
+    SocketHandle sock = socket(PF_INET, SOCK_DGRAM, 0);
+    if (sock == kInvalidSocket) {
         printf("Cannot create receive socket.");
+#ifdef _WIN32
+        socket_cleanup();
+#endif
         return;
     }
         
     int bufsize = 1024*4;
+#ifdef _WIN32
+    ::setsockopt(sock, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char*>(&bufsize), sizeof(bufsize));
+#else
     ::setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize));
+#endif
 
     memset(&serv, 0, sizeof(serv));
     serv.sin_family = PF_INET;
@@ -82,13 +144,19 @@ static void udp_thread_main() {
     
     if(::bind(sock, (sockaddr*)&serv, sizeof(serv)) != 0) {
         printf("binding failed.\n");
-        ::close(sock);
+        close_socket(sock);
+#ifdef _WIN32
+        socket_cleanup();
+#endif
         return;
     }
     
     if(!set_nonblocking(sock)) {
         printf("socket setting failed.\n");
-        ::close(sock);
+        close_socket(sock);
+#ifdef _WIN32
+        socket_cleanup();
+#endif
         return;
     }
     std::cout << "FROM UDP Pipeline Connected!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
@@ -106,9 +174,13 @@ static void udp_thread_main() {
     int gim_count = 0;
     int gp_count = 0;
 
-    int ssck = socket(PF_INET, SOCK_DGRAM, 0);
-    if (ssck < 0) {
+    SocketHandle ssck = socket(PF_INET, SOCK_DGRAM, 0);
+    if (ssck == kInvalidSocket) {
         printf("Cannot create transport socket.");
+#ifdef _WIN32
+        close_socket(sock);
+        socket_cleanup();
+#endif
         return;
     }
 
@@ -120,20 +192,24 @@ static void udp_thread_main() {
     if(::inet_pton(PF_INET, "127.0.0.1", &dst.sin_addr) != 1) {
     // dst.sin_addr.s_addr = inet_addr("192.168.50.102");
     // if(::inet_pton(PF_INET, "192.168.50.102", &dst.sin_addr) != 1) {
-        ::close(sock);
-        ssck = -1;
+        close_socket(sock);
+        close_socket(ssck);
+#ifdef _WIN32
+        socket_cleanup();
+#endif
+        ssck = kInvalidSocket;
         printf("transport socket link failed.");
         return;
     }
     std::cout << "TO UDP Pipeline Created----------------------" << std::endl;
     std::cout << "Talking to 127.0.0.1:" << UDP_OUT_PORT << std::endl;
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     while (1) {
         if (g_stop.load(std::memory_order_relaxed)) break;
         
         while (!g_stop.load(std::memory_order_relaxed))
         {
-            ssize_t n = ::recvfrom(sock, buf, sizeof(buf), 0, (sockaddr*)&clnt, &clnt_sz);
+            ssize_t n = ::recvfrom(sock, reinterpret_cast<char*>(buf), sizeof(buf), 0, (sockaddr*)&clnt, &clnt_sz);
            
             if (n < (ssize_t)sizeof(UdpHeader)) continue;
             //printf("Received bytes : %ld \n", n);
@@ -206,7 +282,7 @@ static void udp_thread_main() {
             }
             //if (att_count == 1 || lp_count == 1 && att_count == 1 && gim_count == 1 && gp_count == 1) {
             if (lp_count == 1 && att_count == 1 && gim_count == 1 && gp_count == 1) {
-                ssize_t n = ::sendto(ssck, &pay, sizeof(pay), 0, reinterpret_cast<sockaddr*>(&dst), sizeof(dst));
+                ssize_t n = ::sendto(ssck, reinterpret_cast<const char*>(&pay), sizeof(pay), 0, reinterpret_cast<sockaddr*>(&dst), sizeof(dst));
                 lp_count = 0;
                 att_count = 0;
                 gim_count = 0;
@@ -218,14 +294,18 @@ static void udp_thread_main() {
     }
 
     printf("Shut down.");
-    close(sock);
-    close(ssck);
+    close_socket(sock);
+    close_socket(ssck);
+#ifdef _WIN32
+    socket_cleanup();
+#endif
 
     printf("Close socket.");
     return;
 }
 
 // ======================== Thread B: relay GStreamer ========================
+#if defined(QGC_GST_STREAMING)
 struct GstCtx {
     GMainLoop* loop = nullptr;
     GstElement* pipeline = nullptr;
@@ -314,6 +394,7 @@ static void rtp_thread_main() {
 
     if (stop.joinable()) stop.join();
 }
+#endif
 
 extern "C" bool relay_start() {
     if (g_running.exchange(true)) return true;
@@ -321,7 +402,9 @@ extern "C" bool relay_start() {
     g_stop.store(false);
 
     g_udpThread = std::thread(udp_thread_main);
+#if defined(QGC_GST_STREAMING)
     g_rtpThread = std::thread(rtp_thread_main);
+#endif
 
     return true;
 }
@@ -336,8 +419,10 @@ extern "C" void relay_stop() {
 
     if (g_udpThread.joinable()) g_udpThread.join();
     std::cout << "Close UDP socket" << std::endl;
+#if defined(QGC_GST_STREAMING)
     if (g_rtpThread.joinable()) g_rtpThread.join();
     std::cout << "Close RTP streaming" << std::endl;
+#endif
 
     g_running.store(false);
     
