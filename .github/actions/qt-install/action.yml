@@ -33,6 +33,5 @@ runs:
         target: ${{ inputs.target }}
         arch: ${{ inputs.arch }}
         dir: ${{ inputs.dir }}
-        modules: ${{ inputs.modules }}
         setup-python: false
         cache: true
