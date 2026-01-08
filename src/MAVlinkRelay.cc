@@ -129,7 +129,13 @@ static void udp_thread_main() {
     }
         
     int bufsize = 1024*4;
+    #ifdef _WIN32
+    ::setsockopt(sock, SOL_SOCKET, SO_RCVBUF,
+                reinterpret_cast<const char*>(&bufsize),
+                sizeof(bufsize));
+    #else
     ::setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize));
+    #endif
 
     memset(&serv, 0, sizeof(serv));
     serv.sin_family = PF_INET;
