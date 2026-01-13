@@ -358,11 +358,11 @@ static void rtp_thread_main() {
 
     GstCtx ctx{};
     ctx.loop = g_main_loop_new(nullptr, FALSE);
-    // std::cout << loop_ << std::endl;
+    std::cout << "loop_" << std::endl;
 
     GError* err = nullptr;
     ctx.pipeline = gst_parse_launch(pipelineStr.c_str(), &err);
-    // std::cout << pipelineStr_.c_str() << std::endl;
+    std::cout << pipelineStr_.c_str() << std::endl;
     // std::cout << pipeline << std::endl;
     if (!ctx.pipeline) {
         if (err) { std::cerr << "parse error: " << err->message << "\n"; g_error_free(err); }
@@ -373,7 +373,7 @@ static void rtp_thread_main() {
 
     GstBus* bus = gst_element_get_bus(ctx.pipeline);
     gst_bus_add_watch(bus, gst_bus_cb, &ctx);
-    // std::cout << busWatchId_ << std::endl;
+    std::cout << "busWatchId_" << std::endl;
     gst_object_unref(bus);
 
     gst_element_set_state(ctx.pipeline, GST_STATE_PLAYING);
